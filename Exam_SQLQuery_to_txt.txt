@@ -1,0 +1,368 @@
+
+--============================== BEGIN =============================
+
+--==================================================================
+--Разработать БД, которая позволяет хранить информацию о приборах учета в жилых
+--домах и считать по ним суммы по оказанным услугам.
+--Все объекты БД и внесесения данных создать в скрипте.
+--Результат выполнения Экзамена - скрипт + БД.
+--==================================================================
+
+DELETE _02PR31_calcService_Georgiy_Exam
+CREATE DATABASE _02PR31_calcService_Georgiy_Exam
+ON PRIMARY
+(
+	NAME = HW_08_WCDB,
+	FILENAME = 'C:\Program Files\Microsoft SQL Server\MSSQL15.SQLEXPRESS2019\MSSQL\DATA\_02PR31_calcService_Georgiy_Exam.mdf',
+	SIZE = 12MB,
+	MAXSIZE = 20MB,
+	FILEGROWTH = 2MB
+
+)
+LOG ON
+(
+	NAME = HW_08_WCDB_Log,
+	FILENAME = 'C:\Program Files\Microsoft SQL Server\MSSQL15.SQLEXPRESS2019\MSSQL\DATA\_02PR31_calcService_Georgiy_Exam.ldf',
+	SIZE = 2MB,
+	MAXSIZE = 11MB,
+	FILEGROWTH = 1MB
+)
+COLLATE Latin1_General_CI_AI;
+GO
+
+USE _02PR31_calcService_Georgiy_Exam
+GO
+
+--==================================================================
+--2. Создать таблицу Countries
+--- Первичный ключ
+--- Название (добавить ограничение - не может принимать null и строка не
+--может содержать менее 1 символа)
+--==================================================================
+
+CREATE TABLE Countries (
+    Id INT IDENTITY(1,1),
+	Name_Countries NVARCHAR(40) NOT NULL
+	
+	CONSTRAINT PK_Countries_ID PRIMARY KEY(Id),
+	CONSTRAINT CK_Countries_Name_Countries CHECK (LEN(Name_Countries) > 1)
+);
+GO
+
+--==================================================================
+--3. Создать таблицу Cities
+--- Первичный ключ
+--- Название
+--- IdCountry
+--Добавить связь на таблицу Countries
+--==================================================================
+
+CREATE TABLE Cities (
+    ID INT IDENTITY(1,1),
+	Name_Cities NVARCHAR(50) NOT NULL,
+	ID_Country INT
+	
+	CONSTRAINT PK_Cities_ID PRIMARY KEY(ID),
+	CONSTRAINT CK_Cities_Name_Cities CHECK (LEN(Name_Cities) > 0),
+	CONSTRAINT FK_Cities_ID_Country_To_Countries FOREIGN KEY (ID_Country) REFERENCES Countries(ID)
+);
+GO
+--==================================================================
+--4. Создать таблицу Streets
+--- Первичный ключ
+--- Название (по умолчанию строка - "не задано")
+--- IdCity
+--Добавить связь на таблицу Cities
+--==================================================================
+
+CREATE TABLE Streets (
+    ID INT IDENTITY,
+	Name_Streets NVARCHAR(50) NULL DEFAULT 'not set',
+	ID_City INT
+	
+	CONSTRAINT PK_Streets_ID PRIMARY KEY(ID),
+	CONSTRAINT FK_Streets_ID_City_To_Cities FOREIGN KEY (ID_City) REFERENCES Cities(ID)
+);
+GO
+--==================================================================
+--5. Добавить по 5 записей в таблицы Countries, Cities, Streets
+--==================================================================
+
+INSERT INTO Countries VALUES
+('Ukraine'),
+('Poland'),
+('USA'),
+('Britain'),
+('German')
+
+SELECT * FROM Countries
+---
+GO
+---
+INSERT Cities 
+(Name_Cities,ID_Country)
+VALUES
+('Kharkiv',1),
+('Varshava',2),
+('LosAngeles',3),
+('London',4),
+('Dortmund',5)
+SELECT * FROM Cities
+---
+GO
+---
+INSERT INTO Streets VALUES
+('Nadiy 7',1),
+('Opolska 56',2),
+('Mellouse-avenu',3),
+('Baker-street',4),
+('Hole',5)
+SELECT * FROM Streets
+
+--==================================================================
+--6. Создать представление CountryCityStreets, в котром присутствуют следующие
+--поля:
+--Id
+--FullAddress
+--==================================================================
+
+CREATE VIEW CountryCityStreets
+(Id,FullAddress)
+AS
+SELECT co.Id, CONCAT(co.Name_Countries ,'/', ci.Name_Cities,'/',st.Name_Streets) FROM Countries co
+	LEFT JOIN Cities ci ON ci.ID_Country = co.Id
+	LEFT JOIN Streets st ON st.ID_City = ci.Id
+
+GO
+--==================================================================
+--7. Вывести все записи представления CountryCityStreets
+--==================================================================
+
+SELECT * FROM CountryCityStreets
+
+--==================================================================
+--8. Создать таблицу PersonalAccount
+--- Первичный ключ
+--- Фамилия - не может принимать null
+--- Имя - не может принимать null
+--- Отчество - не может принимать null
+--- Пол не может принимать null
+--- Дата рождения
+--- Внешний ключ на представление CountryCityStreets
+--==================================================================
+
+CREATE TABLE PersonalAccount (
+
+    ID INT IDENTITY(1,1),
+	Surname NVARCHAR(30) NOT NULL,
+	Name NVARCHAR(30) NOT NULL,
+	Midname NVARCHAR(30) NOT NULL,
+	Gender NVARCHAR(10) NOT NULL,
+	Birthdate DATE NULL,
+	ID_CountryCityStreets INT
+	
+
+	CONSTRAINT PK_Customers_ID PRIMARY KEY(Id),
+
+	CONSTRAINT CK_PersonalAccoun_Surname CHECK (LEN(Surname) > 0),
+	CONSTRAINT CK_PersonalAccoun_Name CHECK (LEN(Name) > 0),
+	CONSTRAINT CK_PersonalAccoun_Midname CHECK (LEN(Midname) > 0),
+	CONSTRAINT CK_PersonalAccoun_Gender CHECK (Gender = 'male' OR Gender = 'female'),
+
+	CONSTRAINT FK_ID_CountryCityStreets_To_CountryCityStreets FOREIGN KEY (ID_CountryCityStreets) REFERENCES Countries(Id) 
+);
+
+--==================================================================
+--9. Добавить в таблицу PersonalAccount 5 Записей. При написании запроса insert в
+--таблицу PersonalAccount использовать подзапрос на представление
+--CountryCityStreets, который возвращает Id записи и в выражение использует
+--следующие комбинации Where FullAddress like ....
+--==================================================================
+
+INSERT INTO PersonalAccount
+(Name, Midname, Surname, Gender, Birthdate, ID_CountryCityStreets)
+VALUES
+('Clarck','Johnatan	','Cent',	'male','2001-01-01',2),
+('Porsha','Rebecka	','Lin',	'female','2002-02-02',3),
+('Elay	','Jefferson','Wolees',	'male','2003-03-03',4),
+('Markys','Nickolos	','Boon',	'male','2004-04-04',5),
+('Friday','Neural network','Iron Man','female','2005-05-05',1)
+
+GO
+
+--==================================================================
+--10. Создать таблицу TypeMeteringDevices
+--- Первичный ключ
+--- Название - не может принимать null, поле уникальное
+--==================================================================
+
+CREATE TABLE TypeMeteringDevices(
+	ID int IDENTITY(1,1) NOT NULL,
+	Name_Type_Devices nvarchar(50) NOT NULL UNIQUE,
+
+	CONSTRAINT PK_TypeMeteringDevices_ID PRIMARY KEY(Id),
+	CONSTRAINT CK_TypeMeteringDevices_Name_Type_Devices CHECK(len(Name_Type_Devices)>0),
+	CONSTRAINT UQ_TypeMeteringDevices_Name_Type_Devices UNIQUE(Name_Type_Devices)
+);
+
+--==================================================================
+--11. Добавить следующие виды счетчиков:
+--Учет ХВ, Учет ГВ, Учет Э-ва, Учет Газа.
+--==================================================================
+
+INSERT INTO TypeMeteringDevices VALUES
+('Cold water meter'),
+('Electricity meter'),
+('Gas meter'),
+('Warm water meter')
+
+SELECT * FROM TypeMeteringDevices
+
+GO
+--==================================================================
+--12. Создать таблицу PersonalAccountJournalMeteringDevice
+--- Первичный ключ
+--- Внешний ключ на таблицу PersonalAccount
+--- Внешний ключ на таблицу TypeMeteringDevices
+--- Дата (первый день месяца)
+--- Значение услуги (не может быть null и значение должно быть > 0)
+--==================================================================
+
+CREATE TABLE PersonalAccountJournalMeteringDevice
+(
+	ID int IDENTITY(1,1) NOT NULL,
+	ID_PersonalAccount int NOT NULL,
+	ID_TypeMeteringDevices int NOT NULL,
+	First_day_of_month date NOT NULL,
+	Value_Menering_Device float NOT NULL
+
+	CONSTRAINT PK_PersonalAccountJournalMeteringDevice_ID PRIMARY KEY(Id),
+
+	CONSTRAINT FK_ID_PersonalAccount_To_PersonalAccount FOREIGN KEY (ID_PersonalAccount) REFERENCES PersonalAccount(Id),
+	CONSTRAINT FK_ID_TypeMeteringDevices_To_TypeMeteringDevices FOREIGN KEY (ID_TypeMeteringDevices) REFERENCES TypeMeteringDevices(Id),
+
+	CONSTRAINT CK_PersonalAccountJournalMeteringDevice_First_day_of_month CHECK(DATEPART(dd, First_day_of_month) = 1),
+	CONSTRAINT CK_PersonalAccountJournalMeteringDevice_Value_Menering_Device CHECK(Value_Menering_Device > 0),
+	
+);
+
+GO
+--==================================================================
+--13. Создать таблицу PersonalAccountMeteringDevice
+--- Первичный ключ
+--- Внешний ключ на таблицу PersonalAccount
+--- Внешний ключ на таблицу TypeMeteringDevices
+--- Дата начала установки (не может быть null и значение по-умолчанию -
+--текущая дата)
+--- Дата дата вывода из эксплуатации (не может быть null и значение
+--по-умолчанию - Дата начала установки + 100 лет)
+--- Заводской номер
+--==================================================================
+
+CREATE TABLE PersonalAccountMeteringDevice
+(
+	ID int IDENTITY(1,1) NOT NULL,
+	ID_PersonalAccount int NOT NULL,
+	ID_TypeMeteringDevices int NOT NULL,
+	First_Set_Date date NOT NULL DEFAULT (getdate()),
+	Last_Unset_Date date NOT NULL DEFAULT (dateadd(year,(100),getdate())),
+	Number_Devise int NOT NULL,
+
+	CONSTRAINT PK_PersonalAccountMeteringDevice_ID PRIMARY KEY(Id),
+
+	CONSTRAINT FK_PersonalAccountMeteringDevice_ID_PersAcco_To_PersonalAccount FOREIGN KEY (ID_PersonalAccount) REFERENCES PersonalAccount(Id),
+	CONSTRAINT FK_PersonalAccountMeteringDevice_ID_TypeMetergDevi_To_TypeMeteringDevices FOREIGN KEY (ID_TypeMeteringDevices) REFERENCES TypeMeteringDevices(Id),
+
+	CONSTRAINT CK_PersonalAccountMeteringDevice_First_Set_Date CHECK(First_Set_Date > getdate() OR First_Set_Date = getdate()),
+	CONSTRAINT CK_PersonalAccountMeteringDevice_Last_Unset_Date CHECK(Last_Unset_Date >getdate() OR Last_Unset_Date = getdate()),
+	
+	CONSTRAINT CK_PersonalAccountMeteringDevice_Number_Devise CHECK (Number_Devise > 0)
+);
+
+GO
+
+--==================================================================
+--14. Создать таблицу PersonalAccountMeteringDeviceValues
+--- Первичный ключ
+--- Внешний ключ на таблицу PersonalAccountMeteringDevice
+--- Дата снятия показания счетчика (не может быть null и значение
+--по-умолчанию - первый день месяца от текущей даты)
+--- Показание счетчика (не может быть < 0)
+--==================================================================
+
+CREATE TABLE PersonalAccountMeteringDeviceValues
+(
+	ID int IDENTITY(1,1) NOT NULL,
+	ID_PersonalAccount int NOT NULL,
+	ID_TypeMeteringDevices int NOT NULL,
+	First_Set_Date date NOT NULL DEFAULT (getdate()),
+	Last_Unset_Date date NOT NULL DEFAULT (dateadd(year,(100),getdate())),
+	Number_Devise int NOT NULL,
+
+	CONSTRAINT PK_PersonalAccountMeteringDevice_ID PRIMARY KEY(Id),
+
+	CONSTRAINT FK_PersonalAccountMeteringDevice_ID_PersAcco_To_PersonalAccount FOREIGN KEY (ID_PersonalAccount) REFERENCES PersonalAccount(Id),
+	CONSTRAINT FK_PersonalAccountMeteringDevice_ID_TypeMetergDevi_To_TypeMeteringDevices FOREIGN KEY (ID_TypeMeteringDevices) REFERENCES TypeMeteringDevices(Id),
+
+	CONSTRAINT CK_PersonalAccountMeteringDevice_First_Set_Date CHECK(First_Set_Date > getdate() OR First_Set_Date = getdate()),
+	CONSTRAINT CK_PersonalAccountMeteringDevice_Last_Unset_Date CHECK(Last_Unset_Date >getdate() OR Last_Unset_Date = getdate()),
+	
+	CONSTRAINT CK_PersonalAccountMeteringDevice_Number_Devise CHECK (Number_Devise > 0)
+);
+
+GO
+
+--==================================================================
+--15. Создать Процедуру AddMeteringDeviceToPersonalAccount, которая принимает
+--- Id PersonalAccount
+--- Id TypeMeteringDevices
+--- Дату установки счетчика (по умолчанию null)
+--- Дату окончания снятия счетчика (по умолчанию null)
+--- Заводской номер
+--- Первочальные показания счетчика
+--ПРоцедура должна дабавить в таблицу PersonalAccountMeteringDevice
+--устройство по указанному персональному счету (квартире), затем в таблицу
+--PersonalAccountMeteringDeviceValues добавить первоначальное значение счетчика на
+--текущую дату установки.
+--==================================================================
+
+--==================================================================
+--16. Вызвать Процедуру AddMeteringDeviceToPersonalAccount по каждому лиц. счету и
+--типу счетчика.
+--==================================================================
+
+--==================================================================
+--17. Создать процедуру AddValuesToMeteringDevicePersonalAccount, которая принимает
+--- Id PersonalAccount
+--- Id TypeMeteringDevices
+--- Дату снятия показания счетчика
+--- Показания счетчика
+--Процедура должна добавлять по указаному типу счетчику в указанному
+--лицевом счет показания.
+--==================================================================
+
+--==================================================================
+--18. Создать Триггер на таблицу PersonalAccountMeteringDeviceValues на событие
+--вставки
+--- Если срабатывает событие, то необходимо получить разницу показания
+--счетчика от предыдущего и добавить это значние в таблицу
+--PersonalAccountJournalMeteringDevice
+--==================================================================
+
+--==================================================================
+--19. Вызвать процедуру AddValuesToMeteringDevicePersonalAccount по всем лицевым
+--счетам и типам счетчика.
+--Проверить(вывести) содержимое таблицы
+--PersonalAccountJournalMeteringDevice (пополняются ли данными таблица после
+--вызова процедуры AddValuesToMeteringDevicePersonalAccount)
+--==================================================================
+
+--==================================================================
+--21. Выполнить Бекап БД
+--==================================================================
+
+--==================================================================
+--22. Оправить файл бекапа бд и скрипт на почту преподавателя.
+--==================================================================
+
+--=============================== END ==============================
