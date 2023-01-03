@@ -172,6 +172,7 @@ CREATE TABLE PersonalAccount (
 	CONSTRAINT FK_ID_CountryCityStreets_To_CountryCityStreets FOREIGN KEY (ID_CountryCityStreets) REFERENCES Countries(Id) 
 );
 
+SELECT * FROM PersonalAccount
 --==================================================================
 --9. Добавить в таблицу PersonalAccount 5 Записей. При написании запроса insert в
 --таблицу PersonalAccount использовать подзапрос на представление
@@ -295,19 +296,17 @@ CREATE TABLE PersonalAccountMeteringDeviceValues
 	ID int IDENTITY(1,1) NOT NULL,
 	ID_PersonalAccount int NOT NULL,
 	ID_TypeMeteringDevices int NOT NULL,
-	First_Set_Date date NOT NULL DEFAULT (getdate()),
-	Last_Unset_Date date NOT NULL DEFAULT (dateadd(year,(100),getdate())),
-	Number_Devise int NOT NULL,
+	Metering date NOT NULL DEFAULT CONCAT(YEAR(getdate()), MONTH(getdate()),1),
+	Initial_Meter_Readings float NOT NULL,
 
-	CONSTRAINT PK_PersonalAccountMeteringDevice_ID PRIMARY KEY(Id),
-
-	CONSTRAINT FK_PersonalAccountMeteringDevice_ID_PersAcco_To_PersonalAccount FOREIGN KEY (ID_PersonalAccount) REFERENCES PersonalAccount(Id),
-	CONSTRAINT FK_PersonalAccountMeteringDevice_ID_TypeMetergDevi_To_TypeMeteringDevices FOREIGN KEY (ID_TypeMeteringDevices) REFERENCES TypeMeteringDevices(Id),
-
-	CONSTRAINT CK_PersonalAccountMeteringDevice_First_Set_Date CHECK(First_Set_Date > getdate() OR First_Set_Date = getdate()),
-	CONSTRAINT CK_PersonalAccountMeteringDevice_Last_Unset_Date CHECK(Last_Unset_Date >getdate() OR Last_Unset_Date = getdate()),
-	
-	CONSTRAINT CK_PersonalAccountMeteringDevice_Number_Devise CHECK (Number_Devise > 0)
+	CONSTRAINT PK_PersonalAccountMeteringDeviceValues_ID PRIMARY KEY(Id),
+											  
+	CONSTRAINT FK_PersonalAccountMeteringDeviceValues_ID_PersAcco_To_PersonalAccount FOREIGN KEY (ID_PersonalAccount) REFERENCES PersonalAccount(Id),
+	CONSTRAINT FK_PersonalAccountMeteringDeviceValues_ID_TypeMetergDevi_To_TypeMeteringDevices FOREIGN KEY (ID_TypeMeteringDevices) REFERENCES TypeMeteringDevices(Id),
+						
+	CONSTRAINT CK_PersonalAccountMeteringDeviceValues_Last_Unset_Date CHECK(Metering > getdate() OR Metering = getdate()),
+											  
+	CONSTRAINT CK_PersonalAccountMeteringDeviceValues_Initial_Meter_Readings CHECK (Initial_Meter_Readings > 0)
 );
 
 GO
@@ -326,11 +325,94 @@ GO
 --текущую дату установки.
 --==================================================================
 
+CREATE PROCEDURE AddMeteringDeviceToPersonalAccount
+	
+	@id_personal_account int,
+    @id_type_metering_devices int,
+    @set_counter_date date,
+    @unset_counter_date date,
+	@factory_number int, --OUT
+	@initial_meter_readings float
+AS
+BEGIN
+    DECLARE 
+		@count_person INT,
+		@i INT = 1;
+
+	SELECT @count_person = COUNT(*) FROM PersonalAccount;
+    BEGIN TRY
+		WHILE (@i <= @count_person)
+		BEGIN
+			IF (@id_personal_account = (SELECT ID FROM PersonalAccount WHERE ID = @id_personal_account))
+			BEGIN
+				IF (@id_type_metering_devices = (SELECT ID FROM TypeMeteringDevices WHERE ID = @id_type_metering_devices))
+				BEGIN
+					INSERT PersonalAccountMeteringDevice
+					(	
+						ID_PersonalAccount,
+						ID_TypeMeteringDevices,
+						First_Set_Date,
+						Last_Unset_Date,
+						Number_Devise
+					)
+					
+					VALUES
+					(	
+						@id_personal_account,
+						@id_type_metering_devices,
+						@set_counter_date,
+						@unset_counter_date,
+						@factory_number
+					)
+
+					INSERT PersonalAccountMeteringDeviceValues
+					(	
+						ID_PersonalAccount,
+						ID_TypeMeteringDevices,
+						Initial_Meter_Readings
+					)
+					VALUES
+
+					(	
+						@id_personal_account,
+						@id_type_metering_devices,
+						@initial_meter_readings
+					)
+
+					BREAK
+				END
+			END
+
+			ELSE
+			BEGIN
+				PRINT 'Sign to else, data is invalid'
+			END
+
+		SET @i = @i + 1;
+		END
+	
+	END TRY
+	BEGIN CATCH
+		PRINT 'Error! data is invalid'
+	END CATCH
+END
+
+GO
+
 --==================================================================
 --16. Вызвать Процедуру AddMeteringDeviceToPersonalAccount по каждому лиц. счету и
 --типу счетчика.
 --==================================================================
 
+EXECUTE AddMeteringDeviceToPersonalAccount 1,1,'2023/2/1', '2024/12/30',1111, 2222
+
+--@id_personal_account int,
+--    @id_type_metering_devices int,
+--    @set_counter_date date,
+--    @unset_counter_date date,
+--	@factory_number int, --OUT+
+
+--	@initial_meter_readings float
 --==================================================================
 --17. Создать процедуру AddValuesToMeteringDevicePersonalAccount, которая принимает
 --- Id PersonalAccount
